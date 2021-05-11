@@ -33,7 +33,7 @@ module RuboCop
 
         MSG = 'Do not assign `%<method_name>s` to constants as it ' \
               'will be evaluated only once.'
-        RELATIVE_DATE_METHODS = %i[since from_now after ago until before yesterday tomorrow].freeze
+        RELATIVE_DATE_METHODS = %i[since from_now after ago until before yesterday tomorrow].to_set.freeze
 
         def on_casgn(node)
           nested_relative_date?(node) do |method_name|
@@ -89,10 +89,6 @@ module RuboCop
           range_between(name.loc.expression.begin_pos, value.loc.expression.end_pos)
         end
 
-        def relative_date_method?(method_name)
-          RELATIVE_DATE_METHODS.include?(method_name)
-        end
-
         def nested_relative_date?(node, &callback)
           return if node.block_type?
 
@@ -104,11 +100,11 @@ module RuboCop
         end
 
         def_node_matcher :relative_date_or_assignment?, <<~PATTERN
-          (:or_asgn (casgn _ _) (send _ $#relative_date_method?))
+          (:or_asgn (casgn _ _) (send _ $RELATIVE_DATE_METHODS))
         PATTERN
 
         def_node_matcher :relative_date?, <<~PATTERN
-          (send _ $#relative_date_method?)
+          (send _ $RELATIVE_DATE_METHODS)
         PATTERN
       end
     end
