@@ -36,13 +36,9 @@ module RuboCop
         RELATIVE_DATE_METHODS = %i[since from_now after ago until before yesterday tomorrow].freeze
 
         def on_casgn(node)
-          return if node.children[2]&.block_type?
-
-          node.each_descendant(:send) do |send_node|
-            relative_date?(send_node) do |method_name|
-              add_offense(node, message: message(method_name)) do |corrector|
-                autocorrect(corrector, node)
-              end
+          nested_relative_date?(node) do |method_name|
+            add_offense(node, message: message(method_name)) do |corrector|
+              autocorrect(corrector, node)
             end
           end
         end
@@ -55,7 +51,7 @@ module RuboCop
           lhs.children.zip(rhs.children).each do |(name, value)|
             next unless name.casgn_type?
 
-            relative_date?(value) do |method_name|
+            nested_relative_date?(value) do |method_name|
               add_offense(offense_range(name, value), message: message(method_name)) do |corrector|
                 autocorrect(corrector, node)
               end
@@ -97,16 +93,22 @@ module RuboCop
           RELATIVE_DATE_METHODS.include?(method_name)
         end
 
+        def nested_relative_date?(node, &callback)
+          return if node.block_type?
+
+          node.each_child_node do |child|
+            nested_relative_date?(child, &callback)
+          end
+
+          relative_date?(node, &callback)
+        end
+
         def_node_matcher :relative_date_or_assignment?, <<~PATTERN
           (:or_asgn (casgn _ _) (send _ $#relative_date_method?))
         PATTERN
 
         def_node_matcher :relative_date?, <<~PATTERN
-          {
-            ({erange irange} _ (send _ $#relative_date_method?))
-            ({erange irange} (send _ $#relative_date_method?) _)
-            (send _ $#relative_date_method?)
-          }
+          (send _ $#relative_date_method?)
         PATTERN
       end
     end
